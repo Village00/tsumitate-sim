@@ -131,7 +131,7 @@ footer { margin-top: 20px; font-size: 12px; color: var(--muted); }
           <div class="field"><label for="age">今の年齢</label><div class="unit"><input id="age" type="number" inputmode="numeric" min="0" max="99" value="35"><span>歳</span></div></div>
           <div class="field"><label for="goalAge">目標の年齢</label><div class="unit"><input id="goalAge" type="number" inputmode="numeric" min="1" max="100" value="60"><span>歳</span></div></div>
         </div>
-        <div class="field"><label for="goal">目標金額</label><div class="unit"><input id="goal" type="number" inputmode="decimal" min="0" step="10" value="5000"><span>万円</span></div></div>
+        <div class="field"><label for="goal">目標金額</label><div class="unit"><input id="goal" type="number" inputmode="decimal" min="0" step="10" value="7000"><span>万円</span></div></div>
 
         <div class="field">
           <span class="lbl">今の資産と、毎月の積立の内訳</span>
@@ -334,18 +334,23 @@ footer { margin-top: 20px; font-size: 12px; color: var(--muted); }
     let need = null;
     const chip = $("rChip");
     const scale = (oShare) => others.map(f => ({ name: f.name, c: f.c, v: oPm > 0 ? pmT * oShare * f.pm / oPm : (f.k === "acwi" ? pmT * oShare : 0) }));
-    if (req <= rBase) {
+    // 今の資産はそのまま、毎月の積立のうちFANG+の割合だけを変えて、目標ちょうどになる割合を探す
+    const realloc = w => fs.map(f => ({ ...f, pm: f.k === "fang" ? pmT * w : (oPm > 0 ? pmT * (1 - w) * f.pm / oPm : (f.k === "acwi" ? pmT * (1 - w) : 0)) }));
+    const reach = w => fvMix(realloc(w), months);
+    if (reach(0) >= goal) {
       need = 0;
       $("ratioNeed").innerHTML = "0<small>%</small>";
-      chip.textContent = "FANG+なしでも届く"; chip.className = "chip ok";
-      $("ratioNote").textContent = `FANG+以外の積立（平均で年${pct(rBase)}の想定）だけで、必要な利回りの年${pct(req)}に届きます。`;
-    } else if (fang.r > rBase && req <= fang.r) {
-      const w = (req - rBase) / (fang.r - rBase);
-      need = Math.min(1, Math.ceil(w * 20) / 20);
+      chip.textContent = "積立にFANG+を入れなくても届く"; chip.className = "chip ok";
+      $("ratioNote").textContent = `毎月の積立をFANG+以外（平均で年${pct(rBase)}の想定）だけにしても、目標に届く計算です。今の資産の内訳はそのままにしています。`;
+    } else if (fang.r > rBase && reach(1) >= goal) {
+      let lo = 0, hi = 1;
+      for (let k = 0; k < 60; k++) { const mid = (lo + hi) / 2; reach(mid) >= goal ? hi = mid : lo = mid; }
+      need = Math.min(1, Math.ceil(hi * 20 - 1e-9) / 20);
       $("ratioNeed").innerHTML = "約" + Math.round(need * 100) + "<small>%</small>";
-      chip.textContent = need <= nowShare ? "今の比率で足りている" : need >= 0.7 ? "かなり攻めた配分" : "FANG+を増やすと届く";
-      chip.className = need <= nowShare ? "chip ok" : "chip mid";
-      $("ratioNote").textContent = `FANG+以外の積立の平均（年${pct(rBase)}）とFANG+（年${pct(fang.r)}）を組み合わせて、年${pct(req)}になる比率です。毎月${man1(pmT)}のうち、FANG+を月${man1(pmT * need)}にする計算です。今の資産の内訳はそのままにしています。`;
+      const enough = nowV >= goal;
+      chip.textContent = enough ? "今の比率で足りている" : need >= 0.7 ? "かなり攻めた配分" : "FANG+を増やすと届く";
+      chip.className = enough ? "chip ok" : "chip mid";
+      $("ratioNote").textContent = `毎月${man1(pmT)}の積立のうち、FANG+を月${man1(pmT * need)}（約${Math.round(need * 100)}%）にすると目標に届く計算です。残りは今の内訳の割合のまま、FANG+以外に回します。今の資産の内訳はそのままにしています。`;
     } else {
       $("ratioNeed").innerHTML = "100%でも<small>届かない</small>";
       chip.textContent = "積立額か期間を見直す"; chip.className = "chip ng";
