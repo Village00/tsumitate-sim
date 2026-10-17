@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>銘柄別の積立比率シミュレーター</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700&family=Noto+Sans+JP:wght@400;500;700&display=swap">
+<style>
+/* 入力（左）→ 結果（右）の2列。スマホでは入力 → 結果の1列。結果は「必要な利回り」と「今の配分で届くか」を先頭に置く */
+:root {
+  --bg: #f3f8fb;
+  --surface: #ffffff;
+  --ink: #16303f;
+  --muted: #5b7282;
+  --line: #d5e3ec;
+  --accent: #1f8fc4;
+  --accent-soft: #e2f2fa;
+  --acwi: #3c9a7a;
+  --sp: #2f6db5;
+  --nas: #b08a1e;
+  --fang: #e0663f;
+  --mix: #8a5cc2;
+  --good: #2f8a5f;
+  --warn-bg: #fff4e5;
+  --warn-ink: #8a4b08;
+  --font-display: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", "Noto Sans JP", sans-serif;
+  --font-body: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+  --radius: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1c24; --surface: #16262f; --ink: #e4eef3; --muted: #9ab0bd; --line: #2a3e4a;
+    --accent: #5cc0ec; --accent-soft: #183746; --acwi: #63c7a2; --sp: #74a8ec; --nas: #e0bd55; --fang: #ff8a63; --mix: #b48ef0;
+    --good: #6fd09f; --warn-bg: #3a2a14; --warn-ink: #f3c27d; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1c24; --surface: #16262f; --ink: #e4eef3; --muted: #9ab0bd; --line: #2a3e4a;
+  --accent: #5cc0ec; --accent-soft: #183746; --acwi: #63c7a2; --sp: #74a8ec; --nas: #e0bd55; --fang: #ff8a63; --mix: #b48ef0;
+  --good: #6fd09f; --warn-bg: #3a2a14; --warn-ink: #f3c27d; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.7; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-inline: 16px; padding-block: 24px 48px; }
+header { display: grid; gap: 6px; margin-bottom: 20px; }
+.eyebrow { font-size: 12px; letter-spacing: .08em; color: var(--accent); font-weight: 700; }
+h1 { font-family: var(--font-display); font-size: clamp(24px, 4.5vw, 32px); line-height: 1.3; margin: 0; text-wrap: balance; }
+.lead { color: var(--muted); margin: 0; max-width: 62ch; }
+.grid { display: grid; gap: 20px; grid-template-columns: 1fr; }
+@media (min-width: 920px) { .grid { grid-template-columns: 380px 1fr; align-items: start; } .inputs { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; min-width: 0; }
+h2 { font-family: var(--font-display); font-size: 18px; margin: 0 0 12px; text-wrap: balance; }
+form { display: grid; gap: 16px; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.field { display: grid; gap: 4px; min-width: 0; }
+.field > label, .lbl { font-size: 13px; font-weight: 500; }
+.unit { position: relative; min-width: 0; }
+.unit input { width: 100%; padding: 9px 44px 9px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--ink); font: inherit; font-variant-numeric: tabular-nums; }
+.unit span { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 12px; pointer-events: none; }
+input:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.funds { display: grid; gap: 8px; }
+.fund-head, .fund { display: grid; grid-template-columns: 5.5em 1fr 1fr; gap: 8px; align-items: center; }
+.fund-head { font-size: 12px; color: var(--muted); }
+.fund .name { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+.fund .name i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.fund .unit input { padding-right: 34px; }
+.fund-total { display: grid; grid-template-columns: 5.5em 1fr 1fr; gap: 8px; font-size: 13px; border-top: 1px solid var(--line); padding-top: 8px; font-variant-numeric: tabular-nums; }
+.fund-total span:not(:first-child) { padding-left: 10px; font-weight: 700; }
+details { border-top: 1px dashed var(--line); padding-top: 12px; }
+summary { cursor: pointer; font-size: 13px; font-weight: 500; color: var(--accent); }
+.rates { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }
+.rates .unit input { padding-right: 30px; }
+.note { font-size: 12px; color: var(--muted); margin: 6px 0 0; }
+.example { display: inline-block; font-size: 12px; background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 2px 10px; font-weight: 700; vertical-align: middle; }
+.results { display: grid; gap: 20px; min-width: 0; }
+.hero { display: grid; gap: 18px; grid-template-columns: 1fr; }
+@media (min-width: 640px) { .hero { grid-template-columns: 1fr 1fr; } }
+.big { display: grid; gap: 2px; align-content: start; }
+.big .label { font-size: 13px; color: var(--muted); font-weight: 500; }
+.big .value { font-family: var(--font-display); font-size: clamp(30px, 6.5vw, 42px); font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.big .value small { font-size: .45em; margin-left: 4px; font-weight: 500; }
+.big .sub { font-size: 13px; color: var(--muted); }
+#rReq { color: var(--accent); }
+#rNow.ok { color: var(--good); }
+#rNow.short { color: var(--fang); }
+.chip { display: inline-block; font-size: 12px; font-weight: 700; border-radius: 999px; padding: 2px 10px; margin-top: 4px; }
+.chip.ok { background: color-mix(in srgb, var(--good) 16%, transparent); color: var(--good); }
+.chip.mid { background: color-mix(in srgb, var(--fang) 16%, transparent); color: var(--fang); }
+.chip.ng { background: var(--warn-bg); color: var(--warn-ink); }
+.ratio { display: grid; gap: 14px; grid-template-columns: 1fr; }
+@media (min-width: 640px) { .ratio { grid-template-columns: 1fr 1fr; } }
+.ratio .value { color: var(--fang); }
+.bar { height: 12px; border-radius: 999px; background: var(--accent-soft); overflow: hidden; display: flex; }
+.bar b { display: block; height: 100%; }
+.bar-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--muted); margin-top: 6px; font-variant-numeric: tabular-nums; }
+.bar-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; }
+.ways { display: grid; gap: 10px; grid-template-columns: 1fr; }
+@media (min-width: 640px) { .ways { grid-template-columns: repeat(3, 1fr); } }
+.way { border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: grid; gap: 4px; align-content: start; }
+.way .k { font-size: 13px; color: var(--muted); }
+.way .v { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.way .d { font-size: 12px; color: var(--muted); }
+.chart-box { overflow-x: auto; }
+svg text { fill: var(--muted); font-family: var(--font-body); font-size: 11px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; margin-top: 8px; }
+.legend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+.tips { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; }
+.caution { background: var(--warn-bg); color: var(--warn-ink); border-radius: var(--radius); padding: 16px 20px; font-size: 13px; }
+.caution ul { margin: 6px 0 0; padding-left: 1.2em; display: grid; gap: 4px; }
+footer { margin-top: 20px; font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Brain購入者さま限定の特典</div>
+    <h1>銘柄別の積立比率シミュレーター</h1>
+    <p class="lead">今の資産と積立の内訳を入れると、目標に届くかどうかと、届くための FANG+ の比率の目安がわかります。</p>
+  </header>
+
+  <div class="grid">
+    <section class="panel inputs" aria-labelledby="inTitle">
+      <h2 id="inTitle">あなたの数字 <span class="example" id="exampleChip">入力例が入っています</span></h2>
+      <form id="f" novalidate>
+        <div class="row2">
+          <div class="field"><label for="age">今の年齢</label><div class="unit"><input id="age" type="number" inputmode="numeric" min="0" max="99" value="35"><span>歳</span></div></div>
+          <div class="field"><label for="goalAge">目標の年齢</label><div class="unit"><input id="goalAge" type="number" inputmode="numeric" min="1" max="100" value="60"><span>歳</span></div></div>
+        </div>
+        <div class="field"><label for="goal">目標金額</label><div class="unit"><input id="goal" type="number" inputmode="decimal" min="0" step="10" value="5000"><span>万円</span></div></div>
+
+        <div class="field">
+          <span class="lbl">今の資産と、毎月の積立の内訳</span>
+          <div class="funds">
+            <div class="fund-head"><span></span><span>今の資産</span><span>毎月の積立</span></div>
+            <div class="fund"><span class="name"><i style="background:var(--acwi)"></i>オルカン</span>
+              <div class="unit"><input id="pvAcwi" type="number" inputmode="decimal" min="0" step="10" value="100" aria-label="オルカンの今の資産"><span>万円</span></div>
+              <div class="unit"><input id="pmAcwi" type="number" inputmode="decimal" min="0" step="0.5" value="1" aria-label="オルカンの毎月の積立"><span>万円</span></div></div>
+            <div class="fund"><span class="name"><i style="background:var(--sp)"></i>S&amp;P500</span>
+              <div class="unit"><input id="pvSp" type="number" inputmode="decimal" min="0" step="10" value="50" aria-label="S&P500の今の資産"><span>万円</span></div>
+              <div class="unit"><input id="pmSp" type="number" inputmode="decimal" min="0" step="0.5" value="1" aria-label="S&P500の毎月の積立"><span>万円</span></div></div>
+            <div class="fund"><span class="name"><i style="background:var(--nas)"></i>ナスダック100</span>
+              <div class="unit"><input id="pvNas" type="number" inputmode="decimal" min="0" step="10" value="0" aria-label="ナスダック100の今の資産"><span>万円</span></div>
+              <div class="unit"><input id="pmNas" type="number" inputmode="decimal" min="0" step="0.5" value="0.5" aria-label="ナスダック100の毎月の積立"><span>万円</span></div></div>
+            <div class="fund"><span class="name"><i style="background:var(--fang)"></i>FANG+</span>
+              <div class="unit"><input id="pvFang" type="number" inputmode="decimal" min="0" step="10" value="50" aria-label="FANG+の今の資産"><span>万円</span></div>
+              <div class="unit"><input id="pmFang" type="number" inputmode="decimal" min="0" step="0.5" value="0.5" aria-label="FANG+の毎月の積立"><span>万円</span></div></div>
+            <div class="fund-total"><span>合計</span><span id="pvTotal">—</span><span id="pmTotal">—</span></div>
+          </div>
+        </div>
+
+        <details id="rateBox">
+          <summary>想定の利回り（年）を変える</summary>
+          <div class="rates">
+            <div class="field"><label for="rAcwi">オルカン</label><div class="unit"><input id="rAcwi" type="number" inputmode="decimal" step="0.5" value="7"><span>%</span></div></div>
+            <div class="field"><label for="rSp">S&amp;P500</label><div class="unit"><input id="rSp" type="number" inputmode="decimal" step="0.5" value="9"><span>%</span></div></div>
+            <div class="field"><label for="rNas">ナスダック100</label><div class="unit"><input id="rNas" type="number" inputmode="decimal" step="0.5" value="12"><span>%</span></div></div>
+            <div class="field"><label for="rFang">FANG+</label><div class="unit"><input id="rFang" type="number" inputmode="decimal" step="0.5" value="15"><span>%</span></div></div>
+          </div>
+          <p class="note">はじめの数字は、しょうが計算用に決めた「中くらい」の想定です。将来この利回りになる約束ではありません。</p>
+        </details>
+      </form>
+    </section>
+
+    <div class="results" aria-live="polite">
+      <section class="panel">
+        <div class="hero">
+          <div class="big">
+            <span class="label">目標に届くために必要な利回り</span>
+            <span class="value" id="rReq">—</span>
+            <span class="sub" id="rReqSub"></span>
+          </div>
+          <div class="big">
+            <span class="label">今の内訳のまま続けると</span>
+            <span class="value" id="rNow">—</span>
+            <span class="sub" id="rNowSub"></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>FANG+の比率の目安（計算上）</h2>
+        <div class="ratio">
+          <div class="big">
+            <span class="label">今の積立</span>
+            <span class="value" id="ratioNow" style="color:var(--ink)">—</span>
+            <div class="bar" id="barNow" aria-hidden="true"></div>
+            <div class="bar-legend" id="barNowLg"></div>
+          </div>
+          <div class="big">
+            <span class="label">目標に届く目安</span>
+            <span class="value" id="ratioNeed">—</span>
+            <div class="bar" id="barNeed" aria-hidden="true"></div>
+            <div class="bar-legend" id="barNeedLg"></div>
+            <span><span class="chip" id="rChip"></span></span>
+          </div>
+        </div>
+        <p class="note" id="ratioNote"></p>
+      </section>
+
+      <section class="panel">
+        <h2>差の埋め方は3つ</h2>
+        <p class="note" style="margin:0 0 12px" id="waysNote"></p>
+        <div class="ways">
+          <div class="way"><span class="k">積立を増やすなら</span><span class="v" id="wPmt">—</span><span class="d" id="wPmtD"></span></div>
+          <div class="way"><span class="k">期間を延ばすなら</span><span class="v" id="wYears">—</span><span class="d" id="wYearsD"></span></div>
+          <div class="way"><span class="k">利回りで埋めるなら</span><span class="v" id="wRate">—</span><span class="d" id="wRateD"></span></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>資産の増え方</h2>
+        <div class="chart-box"><svg id="chart" viewBox="0 0 640 300" width="100%" role="img" aria-label="資産の増え方のグラフ"></svg></div>
+        <div class="legend" id="legend"></div>
+        <p class="note">毎月の積立を続け、それぞれの想定の利回りで増えた場合の計算です。実際の値動きは上下します。</p>
+      </section>
+
+      <section class="panel">
+        <h2>しょうの考え方</h2>
+        <ul class="tips">
+          <li>売り買いのタイミングは株価の上下ではなく、ライフプラン次第。年齢と、いつ・いくら使いたいかで決めます。</li>
+          <li>若くて資産がまだ小さい人ほど、FANG+の比率を高めにしやすいです。運用できる期間が長く、下がったときの金額の影響も小さいからです。</li>
+          <li>資産が大きくなってきたら、FANG+の割合を少しずつ減らしていきます。目標が見えてきたら守りに入ります。</li>
+          <li>iDeCoは60歳まで引き出せないので、若い人ほどFANG+向きです。受け取りが近づいたら、iDeCoの中で商品を入れ替える（スイッチング）と、税金をかけずに比率を下げられます。</li>
+        </ul>
+      </section>
+
+      <section class="caution" aria-label="注意">
+        <strong>使う前に読んでください</strong>
+        <ul>
+          <li>この結果は計算上の目安です。特定の商品の売買をすすめるものではありません。最終的な判断はご自身で行ってください。</li>
+          <li>想定の利回りは、将来の成績を約束するものではありません。FANG+は、過去に最大で約51%下がったことがあります。</li>
+          <li>生活費の半年〜1年分など、すぐに使えるお金は別にとっておいてから考えましょう。</li>
+          <li>税金・手数料・為替の動きは計算に入れていません。</li>
+        </ul>
+      </section>
+    </div>
+  </div>
+  <footer>入力した数字は、この端末の中だけに保存されます。外には送られません。</footer>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const KEY = "fangSim.v2";
+  const FUNDS = [
+    { k: "acwi", name: "オルカン", pv: "pvAcwi", pm: "pmAcwi", r: "rAcwi", c: "--acwi" },
+    { k: "sp", name: "S&P500", pv: "pvSp", pm: "pmSp", r: "rSp", c: "--sp" },
+    { k: "nas", name: "ナスダック100", pv: "pvNas", pm: "pmNas", r: "rNas", c: "--nas" },
+    { k: "fang", name: "FANG+", pv: "pvFang", pm: "pmFang", r: "rFang", c: "--fang" },
+  ];
+  const ids = ["age", "goalAge", "goal", ...FUNDS.flatMap(f => [f.pv, f.pm, f.r])];
+  const defaults = {};
+  ids.forEach(k => defaults[k] = $(k).value);
+  try {
+    const saved = JSON.parse(localStorage.getItem(KEY) || "null");
+    if (saved) ids.forEach(k => { if (saved[k] != null) $(k).value = saved[k]; });
+  } catch (e) {}
+
+  const num = id => { const v = parseFloat($(id).value); return isFinite(v) ? Math.max(v, id.startsWith("r") ? -50 : 0) : 0; };
+  const monthly = r => Math.pow(1 + r, 1 / 12) - 1;
+  const growth = (r, m) => Math.pow(1 + monthly(r), m);
+  const annuity = (r, m) => { const i = monthly(r); return Math.abs(i) < 1e-12 ? m : (Math.pow(1 + i, m) - 1) / i; };
+  const fv = (pv, pmt, r, m) => pv * growth(r, m) + pmt * annuity(r, m);
+  const fvMix = (fs, m, k = 1) => fs.reduce((s, f) => s + f.pv * growth(f.r, m) + k * f.pm * annuity(f.r, m), 0);
+  const solveRate = (pv, pmt, m, goal) => {
+    if (fv(pv, pmt, 0, m) >= goal) return 0;
+    if (fv(pv, pmt, 1, m) < goal) return Infinity;
+    let lo = 0, hi = 1;
+    for (let k = 0; k < 80; k++) { const mid = (lo + hi) / 2; fv(pv, pmt, mid, m) >= goal ? hi = mid : lo = mid; }
+    return hi;
+  };
+  const man = v => {
+    if (!isFinite(v)) return "—";
+    if (v >= 10000) return (v / 10000).toFixed(2).replace(/\.?0+$/, "") + "億円";
+    return Math.round(v).toLocaleString("ja-JP") + "万円";
+  };
+  const man1 = v => (Math.round(v * 10) / 10).toLocaleString("ja-JP") + "万円";
+  const pct = r => (r * 100).toFixed(1).replace(/\.0$/, "") + "%";
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+  function bar(el, lg, parts) {
+    const tot = parts.reduce((s, p) => s + p.v, 0) || 1;
+    $(el).innerHTML = parts.filter(p => p.v > 0).map(p => `<b style="width:${p.v / tot * 100}%;background:var(${p.c})"></b>`).join("");
+    $(lg).innerHTML = parts.filter(p => p.v > 0).map(p => `<span><i style="background:var(${p.c})"></i>${p.name} ${man1(p.v)}</span>`).join("");
+  }
+
+  function calc() {
+    const age = num("age"), goalAge = num("goalAge"), goal = num("goal");
+    const fs = FUNDS.map(f => ({ ...f, pv: num(f.pv), pm: num(f.pm), r: num(f.r) / 100 }));
+    const pvT = fs.reduce((s, f) => s + f.pv, 0), pmT = fs.reduce((s, f) => s + f.pm, 0);
+    $("pvTotal").textContent = man1(pvT); $("pmTotal").textContent = man1(pmT) + "/月";
+    try { const o = {}; ids.forEach(k => o[k] = $(k).value); localStorage.setItem(KEY, JSON.stringify(o)); } catch (e) {}
+    $("exampleChip").hidden = ids.some(k => $(k).value !== defaults[k]);
+
+    const years = goalAge - age, months = Math.round(years * 12);
+    const blank = msg => {
+      ["rReq", "rNow", "ratioNow", "ratioNeed", "wPmt", "wYears", "wRate"].forEach(k => $(k).textContent = "—");
+      ["rNowSub", "ratioNote", "waysNote", "wPmtD", "wYearsD", "wRateD", "barNowLg", "barNeedLg"].forEach(k => $(k).textContent = "");
+      $("barNow").innerHTML = $("barNeed").innerHTML = ""; $("rChip").textContent = ""; $("rChip").className = "chip";
+      $("rReqSub").textContent = msg; drawChart(null);
+    };
+    if (years <= 0) return blank("目標の年齢は、今の年齢より後にしてください。");
+    if (goal <= 0) return blank("目標金額を入れてください。");
+    if (pvT + pmT <= 0) return blank("今の資産か毎月の積立を入れてください。");
+
+    const req = solveRate(pvT, pmT, months, goal);
+    $("rReq").innerHTML = req === Infinity ? "100%超" : req === 0 ? "0%" : (req * 100).toFixed(1) + "<small>%/年</small>";
+    $("rReqSub").textContent = req === 0 ? "増やさなくても、積立だけで届く計算です。"
+      : req === Infinity ? "利回りだけでは届きません。積立額か期間を見直しましょう。"
+      : `${years}年で${man(goal)}にするには、資産全体が年${pct(req)}で増え続ける必要があります。`;
+
+    const nowV = fvMix(fs, months);
+    const nowEl = $("rNow");
+    nowEl.textContent = man(nowV);
+    nowEl.className = "value " + (nowV >= goal ? "ok" : "short");
+    $("rNowSub").textContent = nowV >= goal ? `${goalAge}歳で目標に届く計算です（${man(nowV - goal)}の余裕）。` : `${goalAge}歳で目標まで${man(goal - nowV)}足りない計算です。`;
+
+    // FANG+以外の積立の平均利回りを「土台」とし、足りない分をFANG+の比率で補う
+    const others = fs.filter(f => f.k !== "fang");
+    const fang = fs.find(f => f.k === "fang");
+    const oPm = others.reduce((s, f) => s + f.pm, 0);
+    const oPv = others.reduce((s, f) => s + f.pv, 0);
+    const wsum = oPm + oPv;
+    const rBase = wsum > 0 ? others.reduce((s, f) => s + f.r * (f.pm + f.pv), 0) / wsum : others[0].r;
+    const nowShare = pmT > 0 ? fang.pm / pmT : 0;
+    $("ratioNow").innerHTML = Math.round(nowShare * 100) + "<small>%</small>";
+    bar("barNow", "barNowLg", fs.map(f => ({ name: f.name, v: f.pm, c: f.c })));
+
+    let need = null;
+    const chip = $("rChip");
+    const scale = (oShare) => others.map(f => ({ name: f.name, c: f.c, v: oPm > 0 ? pmT * oShare * f.pm / oPm : (f.k === "acwi" ? pmT * oShare : 0) }));
+    if (req <= rBase) {
+      need = 0;
+      $("ratioNeed").innerHTML = "0<small>%</small>";
+      chip.textContent = "FANG+なしでも届く"; chip.className = "chip ok";
+      $("ratioNote").textContent = `FANG+以外の積立（平均で年${pct(rBase)}の想定）だけで、必要な利回りの年${pct(req)}に届きます。`;
+    } else if (fang.r > rBase && req <= fang.r) {
+      const w = (req - rBase) / (fang.r - rBase);
+      need = Math.min(1, Math.ceil(w * 20) / 20);
+      $("ratioNeed").innerHTML = "約" + Math.round(need * 100) + "<small>%</small>";
+      chip.textContent = need <= nowShare ? "今の比率で足りている" : need >= 0.7 ? "かなり攻めた配分" : "FANG+を増やすと届く";
+      chip.className = need <= nowShare ? "chip ok" : "chip mid";
+      $("ratioNote").textContent = `FANG+以外の積立の平均（年${pct(rBase)}）とFANG+（年${pct(fang.r)}）を組み合わせて、年${pct(req)}になる比率です。毎月${man1(pmT)}のうち、FANG+を月${man1(pmT * need)}にする計算です。今の資産の内訳はそのままにしています。`;
+    } else {
+      $("ratioNeed").innerHTML = "100%でも<small>届かない</small>";
+      chip.textContent = "積立額か期間を見直す"; chip.className = "chip ng";
+      $("ratioNote").textContent = `FANG+の想定（年${pct(fang.r)}）を上回る利回りが必要です。先に積立額か期間を見直しましょう。`;
+    }
+    if (need !== null) bar("barNeed", "barNeedLg", [...scale(1 - need), { name: "FANG+", c: fang.c, v: pmT * need }]);
+    else { $("barNeed").innerHTML = ""; $("barNeedLg").textContent = ""; }
+
+    $("waysNote").textContent = "今の内訳の割合のまま続けた場合に、目標に届く条件です。";
+    const base0 = fs.reduce((s, f) => s + f.pv * growth(f.r, months), 0);
+    const ann = fs.reduce((s, f) => s + (pmT > 0 ? f.pm / pmT : 0) * annuity(f.r, months), 0);
+    const needPmt = ann > 0 ? (goal - base0) / ann : Infinity;
+    if (needPmt <= pmT) { $("wPmt").textContent = "今のままでOK"; $("wPmtD").textContent = `月${man1(pmT)}の積立で届く計算です。`; }
+    else if (!isFinite(needPmt)) { $("wPmt").textContent = "—"; $("wPmtD").textContent = "積立の内訳を入れると計算できます。"; }
+    else { $("wPmt").textContent = "月" + man1(Math.ceil(needPmt * 10) / 10); $("wPmtD").textContent = `今より月${man1(Math.ceil((needPmt - pmT) * 10) / 10)}多く積み立てる計算です。`; }
+
+    let reachM = null;
+    for (let m = 1; m <= Math.max(0, (100 - age) * 12); m++) { if (fvMix(fs, m) >= goal) { reachM = m; break; } }
+    if (reachM === null) { $("wYears").textContent = "100歳でも届かない"; $("wYearsD").textContent = "積立額を増やす方法と組み合わせましょう。"; }
+    else { const a = age + reachM / 12; $("wYears").textContent = Math.ceil(a) + "歳まで"; $("wYearsD").textContent = reachM <= months ? `目標の${goalAge}歳より前に届く計算です。` : `目標より約${Math.ceil(a - goalAge)}年あとになります。`; }
+
+    $("wRate").textContent = req === Infinity ? "100%超" : "年" + pct(req);
+    $("wRateD").textContent = need === null ? "利回りだけで埋めるのは難しい計算です。" : need === 0 ? "FANG+を入れなくても届く利回りです。" : "上のFANG+の比率の目安が、この利回りに合わせた配分です。";
+
+    const needFs = need === null ? null : fs.map(f => {
+      const o = f.k === "fang" ? pmT * need : (oPm > 0 ? pmT * (1 - need) * f.pm / oPm : (f.k === "acwi" ? pmT * (1 - need) : 0));
+      return { ...f, pm: o };
+    });
+    drawChart({ fs, needFs, months, goal, pvT, pmT });
+  }
+
+  function drawChart(d) {
+    const svg = $("chart"), W = 640, H = 300, L = 64, R = 16, T = 16, B = 34;
+    if (!d) { svg.innerHTML = ""; $("legend").innerHTML = ""; return; }
+    const single = r => [{ pv: d.pvT, pm: d.pmT, r }];
+    const series = [
+      { name: "今の内訳", fs: d.fs, c: css("--accent"), wgt: 3.2 },
+      ...(d.needFs ? [{ name: "目安の配分", fs: d.needFs, c: css("--mix"), dash: "6 4", wgt: 2.6 }] : []),
+      { name: "全部オルカン", fs: single(d.fs[0].r), c: css("--acwi"), wgt: 1.4, faint: true },
+      { name: "全部FANG+", fs: single(d.fs[3].r), c: css("--fang"), wgt: 1.4, faint: true },
+    ];
+    const step = Math.max(1, Math.round(d.months / 60));
+    const all = series.map(s => {
+      const p = [];
+      for (let m = 0; m <= d.months; m += step) p.push([m, fvMix(s.fs, m)]);
+      if (p[p.length - 1][0] !== d.months) p.push([d.months, fvMix(s.fs, d.months)]);
+      return { ...s, p };
+    });
+    const maxV = Math.max(d.goal, ...all.map(s => s.p[s.p.length - 1][1]));
+    const nice = v => { const e = Math.pow(10, Math.floor(Math.log10(v))); const f = v / e; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * e; };
+    const tick = nice(maxV / 4), top = Math.ceil(maxV / tick) * tick;
+    const x = m => L + (W - L - R) * m / d.months, y = v => T + (H - T - B) * (1 - v / top);
+    let h = "";
+    for (let v = 0; v <= top + 1e-9; v += tick) h += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="${css("--line")}" stroke-width="1"/><text x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${man(v)}</text>`;
+    const yrs = d.months / 12, ys = yrs <= 10 ? 1 : yrs <= 25 ? 5 : 10;
+    for (let yv = 0; yv <= yrs + 1e-9; yv += ys) h += `<text x="${x(yv * 12)}" y="${H - 12}" text-anchor="middle">${yv}年後</text>`;
+    h += `<line x1="${L}" x2="${W - R}" y1="${y(d.goal)}" y2="${y(d.goal)}" stroke="${css("--ink")}" stroke-width="1.2" stroke-dasharray="3 4"/><text x="${W - R}" y="${y(d.goal) - 6}" text-anchor="end" style="fill:${css("--ink")};font-weight:700">目標 ${man(d.goal)}</text>`;
+    [...all].reverse().forEach(s => {
+      const dstr = s.p.map((p, k) => (k ? "L" : "M") + x(p[0]).toFixed(1) + " " + y(p[1]).toFixed(1)).join(" ");
+      const e = s.p[s.p.length - 1];
+      h += `<path d="${dstr}" fill="none" stroke="${s.c}" stroke-width="${s.wgt}" ${s.dash ? `stroke-dasharray="${s.dash}"` : ""} ${s.faint ? 'stroke-opacity=".45"' : ""} stroke-linejoin="round"/><circle cx="${x(e[0])}" cy="${y(e[1])}" r="${s.faint ? 2.5 : 3.8}" fill="${s.c}"/>`;
+    });
+    svg.innerHTML = h;
+    $("legend").innerHTML = all.map(s => `<span><i style="background:${s.c};${s.faint ? "opacity:.45" : ""}"></i>${s.name}：${man(s.p[s.p.length - 1][1])}</span>`).join("");
+  }
+
+  $("f").addEventListener("input", calc);
+  $("f").addEventListener("submit", e => e.preventDefault());
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", calc);
+  calc();
+})();
+</script>
+</body>
+</html>
